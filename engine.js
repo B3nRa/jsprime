@@ -34,6 +34,7 @@ var startScope = [];
 var endScope = [];
 var currentObj = "";
 
+thisIdentifier = "";
 
 options = {
   loc: true,
@@ -446,7 +447,6 @@ function getVariables(node) {
         if (varName2 != "") {
           varVal = varVal + "+" + varName2;
         }
-
         binaryNode = binaryNode.left;
       }
       if (varVal != "") {
@@ -488,9 +488,9 @@ function getVariables(node) {
       while (node2.type == "MemberExpression") {
         if (node2.property) {
           var nodeValue = "";
-          if (node2.property.name)
+          if (node2.property.name){
             nodeValue = node2.property.name;
-          else if (node2.property.value)
+          }else if (node2.property.value)
             nodeValue = node2.property.value;
 
           if (varVal == "" && discardFirstParam == true) {
@@ -508,7 +508,7 @@ function getVariables(node) {
           else
             varVal = node2.object.name;
         } else if (node2.object.type == "ThisExpression" && currentObj != "") {
-          varVal = currentObj + "." + varVal;
+          varVal = thisIdentifier + "." + varVal;
         }
 
         if (node2.object.callee) {
@@ -630,9 +630,9 @@ function getVariables(node) {
       while (node.type == "MemberExpression") {
         if (node.property) {
           var nodeValue = "";
-          if (node.property.name)
+          if (node.property.name){
             nodeValue = node.property.name
-          else if (node.property.value)
+          }else if (node.property.value)
             nodeValue = node.property.value
 
           if (varName == "")
@@ -653,7 +653,7 @@ function getVariables(node) {
           lineNumber = node.object.loc.start.line;
         } else if (node.object.type && currentObj != "") {
           if (node.object.type == "ThisExpression") {
-            varName = currentObj + "." + varName;
+            varName = thisIdentifier + "." + varName;
             lineNumber = node.object.loc.start.line;
           }
         }
@@ -714,8 +714,10 @@ function getVariables(node) {
       data.line = lineNumber;
 
       if ((startScope[startScope.length - 1] < data.line && data.line < endScope[endScope.length - 1]) || startScope.length < 2) {
-        data.startScope = startScope[startScope.length - 1];
-        data.endScope = endScope[endScope.length - 1];
+          // data.startScope = startScope[startScope.length - 1];
+        // data.endScope = endScope[endScope.length - 1];
+       data.startScope = startScope[0];
+       data.endScope = endScope[0];
       } else {
         startScope.pop();
         endScope.pop();
@@ -908,20 +910,30 @@ function getVariables(node) {
       if (node2.type == "ObjectExpression" && node2.properties) {
         for (i = 0; i < node2.properties.length; i++) {
           if (node2.properties[i].type === 'Property') {
-            if (node2.properties[i].key.name) {
+            if (node2.properties[i].key.value) {
               lineObj.push(node2.properties[i].key.loc.start.line);
               if (node2.properties[i].value.value != undefined)
                 varObj.push(node2.properties[i].key.name + "#prop#" + node2.properties[i].value.value + "#type#const");
-              else if (node2.properties[i].value.name != undefined)
-                varObj.push(node2.properties[i].key.name + "#prop#" + node2.properties[i].value.name + "#type#var");
+              else if (node2.properties[i].value.name != undefined){
+                  if(node2.properties[i].key.name != undefined){
+                    varObj.push(node2.properties[i].key.name + "#prop#" + node2.properties[i].value.name + "#type#var");
+                  }
+                  else{
+                   varObj.push(node2.properties[i].key.value + "#prop#" + node2.properties[i].value.name + "#type#var");   
+                  }
+             }
               else {
                 var node4 = node2.properties[i].value;
                 varName2 = "";
+                if(node4.type == "CallExpression"){
+                    node4 = node4.callee;
+                }
                 while (node4.type == "MemberExpression") {
                   if (node4.property) {
                     var nodeValue = "";
-                    if (node4.property.name)
+                    if (node4.property.name){
                       nodeValue = node4.property.name
+                  }
                     else if (node4.property.value)
                       nodeValue = node4.property.value
 
@@ -970,7 +982,7 @@ function getVariables(node) {
                   }
                 }
 
-                varObj.push(node2.properties[i].key.name + "#prop#" + varName2 + "#type#obj");
+                varObj.push(node2.properties[i].key.value + "#prop#" + varName2 + "#type#obj");
               }
             }
           }
@@ -986,7 +998,7 @@ function getVariables(node) {
     }
     if (node.id.name) {
       varName = node.id.name;
-      currentObj = varName;
+        currentObj = varName; // set the name of the "current object" - is used for resolving this.statements later in getFunctions()
     } else {
       node = node.id;
       while (node.type == "MemberExpression") {
@@ -1063,7 +1075,7 @@ function getVariables(node) {
           real_variable_var.push(data);
         }
       }
-    } else {
+    } else {      
       var type = varVal.split("#type#");
       data.line = lineNumber;
       if ((startScope[startScope.length - 1] < data.line && data.line < endScope[endScope.length - 1]) || startScope.length < 2) {
@@ -1093,6 +1105,10 @@ function getVariables(node) {
         real_variable_var.push(data);
       }
     }
+    if(node.init.type === "FunctionExpression"){
+        thisIdentifier = node.id.name;
+    }
+    
   } else if (node.type == "VariableDeclarator" && node.id) {
     if (node.id.name) {
       var data = {
@@ -1474,11 +1490,11 @@ function getFunctions(node) {
 
       }
       while (node5.type == "MemberExpression") {
-        if (node5.property.name)
-          nodeValue = node5.property.name
+        if (node5.property.name){
+            nodeValue = node5.property.name
+        }
         else if (node5.property.value)
           nodeValue = node5.property.value
-
         if (funcName4 == "")
           funcName4 = nodeValue + funcName4;
         else
@@ -1486,13 +1502,16 @@ function getFunctions(node) {
         if (node5.object.name) {
           funcName4 = node5.object.name + "." + funcName4;
         }
+        if(node5.object.type == "ThisExpression") {     
+            funcName4 = thisIdentifier + "." + funcName4;
+        }
         node5 = node5.object;
 
         if (node5.type == "CallExpression") {
           node5 = node5.callee;
         }
       }
-
+      
       if (funcName4 != "")
         data.arguments.variables.push(funcName4);
 
@@ -1577,7 +1596,7 @@ function getFunctions(node) {
       if (node4.object.name) {
         funcName4 = node4.object.name + "." + funcName4;
       } else if (node4.object.type == "ThisExpression" && currentObj != "") {
-        funcName4 = currentObj + "." + funcName4;
+        funcName4 = thisIdentifier + "." + funcName4;
       }
       node4 = node4.object;
       calleeName = funcName4;
@@ -1635,8 +1654,8 @@ function getFunctions(node) {
         }
       }
     } else if (node.init.type == "FunctionExpression") {
-      data.name = node.id.name;
-      data.line = node.id.loc.start.line;
+      data.name = node.id.name; //contains the variable name of the function
+      data.line = node.id.loc.start.line;  //start scope of function
       if (node.id.name) {
         data.name = node.id.name;
         data.line = node.id.loc.start.line;
@@ -1799,6 +1818,7 @@ function getFunctions(node) {
                     if (funcName4 != "") {
                       if (returnType == "function") {
                         data.returns.functions.push(funcName4);
+                       // data.returns.variables.push(funcName4); //MODDED!
                       } else {
                         data.returns.variables.push(funcName4);
                       }
@@ -1839,6 +1859,7 @@ function getFunctions(node) {
             }
 
             if (node2.argument.type == "CallExpression") {
+                
               var node4 = node2.argument.callee;
               var funcName4 = "";
               var nodeValue = "";

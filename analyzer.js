@@ -794,6 +794,7 @@ function checkInFunctionCall(sink, val, sinkObj) {
               }
 
               if (isScope == true) {
+
                 doHighlight("red", real_func_call[i].line);
                 redLine.push(real_func_call[i].line);
                 sinkResultArguments.push(args[k]);
@@ -924,4 +925,11 @@ function parseJavascriptNativeFunctionReverse(name) {
       real_variable_const[i].value = data;
     }
   }
+}
+
+function myLogger(file, line, logMsg){
+	console.log("--------------------------");
+	console.log(file + ": " + "line: " + line + " -> ");
+        console.log(logMsg);
+	console.log("--------------------------");
 }
